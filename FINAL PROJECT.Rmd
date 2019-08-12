@@ -1,0 +1,83 @@
+---
+title: "Untitled"
+author: "matt"
+date: "8/12/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#### **BACKGROUND**
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
+
+#### **LIBRARIES**
+```{r}
+library(caret)
+```
+
+#### **READ DATA**
+```{r}
+trainUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+testUrl <- "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+training <- read.csv(trainUrl)
+testing <- read.csv(testUrl)
+```
+
+#### **CLEAN DATA**
+The provided training data has columns with all NA values as well as columns with near zero variance. Also, the first six columns do not have quantitative data.
+#### Remove columns with all NA
+```{r}
+train1 <- training[,colSums(is.na(training)) == 0]
+dim(train1)
+```
+#### Identify columns with near zero variance
+```{r}
+NZV <- nearZeroVar(train1)
+```
+#### Remove columns with near zero variance
+```{r}
+train2 <- train1[, -NZV]
+dim(train2)
+```
+#### Remove columns one through six
+```{r}
+train3 <- train2[,-c(1:6)]
+dim(train3)
+```
+#### PARTITION DATA
+```{r}
+inTrain <- createDataPartition(train3$classe,p = .6,list = FALSE)
+myTraining <- train3[inTrain,]
+myTesting <- train3[-inTrain,]
+```
+
+#### **DECISION TREES**
+```{r}
+DT.model <- train(classe ~ .,data = myTraining,method = "rpart")#train model 
+DT.prediction <- predict(DT.model,newdata=myTesting)
+DT.conf.mat <- confusionMatrix(myTesting$classe,DT.prediction)
+DT.conf.mat$table#display confusion matrix and model accuracy
+DT.conf.mat$overall[1]
+```
+
+#### **GRADIANT BOOSTED MACHINE**
+```{r}
+set.seed(999)
+controlGBM <- trainControl(method = "repeatedcv", number = 5,repeats = 1)
+GBM.model  <- train(classe ~ .,data=myTraining,method = "gbm",trControl = controlGBM,verbose = FALSE)
+GBM.model
+GBM.predict <- predict(GBM.model,newdata=myTesting)
+GBM.conf.mat <- confusionMatrix(myTesting$classe,GBM.predict)
+GBM.conf.mat$table#display confusion matrix and model accuracy
+GBM.conf.mat$overall[1]
+```
+
+#### **CONLCUSION**
+I created two prediciton models with decision trees and gradiant boosting. The gradiant boosting model performed much better than the tree model, so I used that model to predict the classe of the provided testing dataset.   
+```{r}
+GBM.prediction.final <- predict(GBM.model,newdata=testing)
+GBM.prediction.final
+```
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
